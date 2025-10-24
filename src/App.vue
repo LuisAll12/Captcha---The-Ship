@@ -63,7 +63,7 @@ async function renderRecaptcha() {
     if (!window.grecaptcha || typeof window.grecaptcha.render !== "function") {
       throw new Error("grecaptcha.render not available");
     }
-
+    console.log("BASE used for captcha:", import.meta.env.VITE_API_BASE);
     widgetId.value = window.grecaptcha.render("recaptcha-container", {
       sitekey: siteKey,
       size: "normal",
