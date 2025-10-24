@@ -1,11 +1,8 @@
 <script lang="ts" setup>
 import { ref, onMounted, onBeforeUnmount } from "vue";
 
-// Backend-Basis: Zero-Config auf Vercel => /api/recaptcha
-const BASE = import.meta.env.VITE_API_BASE || "/api/recaptcha";
-
-// reCAPTCHA v2 Site Key (Frontend-Key!)
 const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY as string;
+const verifyUrl = "/recaptcha/verify";
 
 const widgetId = ref<number | null>(null);
 const oneTimeToken = ref<string | null>(null);
@@ -21,8 +18,12 @@ declare global {
 
 function ensureScript(): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (window.grecaptcha && typeof window.grecaptcha.render === "function") return resolve();
+    // wenn bereits geladen und render verfügbar -> sofort
+    if (window.grecaptcha && typeof window.grecaptcha.render === "function") {
+      return resolve();
+    }
 
+    // Wenn bereits ein Script existiert, warte bis grecaptcha verfügbar (polling)
     const existing = document.getElementById("recaptcha-script");
     if (existing) {
       const start = Date.now();
@@ -34,8 +35,11 @@ function ensureScript(): Promise<void> {
       return wait();
     }
 
+    // Füge das Script mit onload callback Parameter hinzu. Google ruft window.__recaptchaOnloadCallback()
     window.__recaptchaOnloadCallback = () => {
+      // zusätzliche Sicherung: grecaptcha.ready ist manchmal verfügbar
       if (window.grecaptcha && typeof window.grecaptcha.render === "function") return resolve();
+      // fallback poll
       const start = Date.now();
       const wait = () => {
         if (window.grecaptcha && typeof window.grecaptcha.render === "function") return resolve();
@@ -59,29 +63,28 @@ async function renderRecaptcha() {
   try {
     loading.value = true;
     await ensureScript();
-
+    // Safety check
     if (!window.grecaptcha || typeof window.grecaptcha.render !== "function") {
       throw new Error("grecaptcha.render not available");
     }
-
+    // render once into container
     widgetId.value = window.grecaptcha.render("recaptcha-container", {
       sitekey: siteKey,
       size: "normal",
       callback: async (token: string) => {
+        // send token to backend for verification -> returns one-time token
         try {
-          const res = await fetch(`${BASE}/verify`, {
+          const res = await fetch(verifyUrl, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ token }),
           });
-
-          const ct = res.headers.get("content-type") || "";
-          const js = ct.includes("application/json") ? await res.json() : { error: await res.text() };
-
+          const js = await res.json();
           if (!res.ok) throw new Error(js.error || "Verification failed");
           oneTimeToken.value = js.one_time_token;
         } catch (err: any) {
           error.value = err.message || String(err);
+          // reset widget to allow retry
           if (window.grecaptcha && typeof widgetId.value === "number") window.grecaptcha.reset(widgetId.value);
         }
       },
@@ -96,11 +99,14 @@ async function renderRecaptcha() {
   }
 }
 
-onMounted(() => { renderRecaptcha(); });
+onMounted(() => {
+  renderRecaptcha();
+});
 
 onBeforeUnmount(() => {
+  // optional cleanup
   if (window.grecaptcha && typeof widgetId.value === "number") {
-    try { window.grecaptcha.reset(widgetId.value); } catch {}
+    try { window.grecaptcha.reset(widgetId.value); } catch(_) {}
   }
 });
 </script>
