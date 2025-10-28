@@ -36,8 +36,13 @@ const errorMsg = ref('')
 
 const emit = defineEmits(['valid'])
 
+const hostFromRuntime = window.RUNTIME_CONFIG?.SIMULATION_HOST
+const host = hostFromRuntime || '127.0.0.1'
+const backend = `http://${host}:5055`
+console.log("Using backend backend:", backend)
+
 async function validateToken(t) {
-  const resp = await fetch(`${import.meta.env.VITE_APP_BACKEND_URL}/ride/hack_dealer/verify/${encodeURIComponent(t)}`, {
+  const resp = await fetch(`${backend}/ride/hack_dealer/verify/${encodeURIComponent(t)}`, {
     method: 'POST',
   })
   if (!resp.ok) throw new Error('Netzwerkfehler')

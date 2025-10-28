@@ -22,8 +22,13 @@ const token = ref('')
 const loading = ref(false)
 const error = ref('')
 
+const hostFromRuntime = window.RUNTIME_CONFIG?.SIMULATION_HOST
+const host = hostFromRuntime || '127.0.0.1'
+const backend = `http://${host}:5055`
+console.log("Using backend backend:", backend)
+
 async function setHacker(t) {
-  const resp = await fetch(`${import.meta.env.VITE_APP_BACKEND_URL}/ride/hack_dealer/make_hacker/${encodeURIComponent(t)}`, {
+  const resp = await fetch(`${backend}/ride/hack_dealer/make_hacker/${encodeURIComponent(t)}`, {
     method: 'POST',
   })
   if (!resp.ok) throw new Error('Netzwerkfehler')
