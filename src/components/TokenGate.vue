@@ -34,17 +34,19 @@ const token = ref('')
 const submitting = ref(false)
 const errorMsg = ref('')
 
+const emit = defineEmits(['valid'])
+
 async function validateToken(t) {
-    const resp = await fetch(`${import.meta.env.VITE_Backend_URL}/hack/validate-token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token: t }),
-    })
-    if (!resp.ok) {
-        throw new Error('Netzwerkfehler')
-    }
-    const data = await resp.json()
-    return data.valid === true
+  const resp = await fetch(`${import.meta.env.VITE_APP_BACKEND_URL}/ride/hack_dealer/verify/${encodeURIComponent(t)}`, {
+    method: 'POST',
+  })
+  if (!resp.ok) throw new Error('Netzwerkfehler')
+  const data = await resp.json()
+  if (data.message === "success") {
+    return true
+  } else {
+    errorMsg.value = data.message 
+  }
 }
 
 async function onSubmit() {
@@ -53,7 +55,7 @@ async function onSubmit() {
   try {
     const ok = await validateToken(token.value)
     if (ok === true) {
-      emit('valid')
+      emit('valid', token.value)   // <— Token nach oben schicken
     } else {
       errorMsg.value = 'Token ist ungültig'
     }
@@ -63,6 +65,4 @@ async function onSubmit() {
     submitting.value = false
   }
 }
-
-const emit = defineEmits(['valid'])
 </script>
